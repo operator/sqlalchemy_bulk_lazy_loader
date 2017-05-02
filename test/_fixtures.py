@@ -87,7 +87,7 @@ class FixtureTest(fixtures.MappedTest):
               Column('id', Integer, primary_key=True,
                      test_needs_autoincrement=True),
               Column('details', Text),
-              Column('parent_id', None, ForeignKey('users.id')),
+              Column('user_id', None, ForeignKey('users.id')),
               test_needs_acid=True,
               test_needs_fk=True)
 

@@ -17,6 +17,41 @@ class TestBulkLazyLoader(_fixtures.FixtureTest):
         super().teardown()
         event.remove(Engine, 'before_cursor_execute', self.count_query)
 
+    def test_load_one_to_one(self):
+        User = self.classes.User
+        UserInfo = self.classes.UserInfo
+        session = create_session()
+
+        users = session.query(User).order_by(self.tables.users.c.id.asc()).all()
+        self.num_queries = 0
+
+        # make sure no relations are loaded
+        for user in users:
+            model_dict = attributes.instance_dict(user)
+            assert 'user_info' not in model_dict
+
+        # trigger a lazy load on the first user
+        users[0].user_info
+
+        # only 1 query should have been generated to load all the child relationships
+        assert self.num_queries == 1
+        self.num_queries = 0
+
+        user1_dict = attributes.instance_dict(users[0])
+        user2_dict = attributes.instance_dict(users[1])
+        user3_dict = attributes.instance_dict(users[2])
+        user4_dict = attributes.instance_dict(users[3])
+
+        assert UserInfo(id=1, details='is cool', user_id=7) == user1_dict['user_info']
+        assert UserInfo(id=2, details='is not cool', user_id=8) == user2_dict['user_info']
+        assert None == user3_dict['user_info']
+        assert UserInfo(id=3, details='is moderately cool', user_id=10) == user4_dict['user_info']
+
+
+        # no new queries should have been generated
+        assert self.num_queries == 0
+
+
     def test_load_one_to_many(self):
         User = self.classes.User
         Address = self.classes.Address
