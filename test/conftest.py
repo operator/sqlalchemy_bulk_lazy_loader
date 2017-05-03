@@ -9,7 +9,7 @@ installs SQLAlchemy's testing plugin into the local environment.
 import sys
 import os
 
-from lib.bulk_lazy_loader import BulkLazyLoader
+from lib.sqlalchemy_bulk_lazy_loader import BulkLazyLoader
 
 from sqlalchemy.testing import plugin
 

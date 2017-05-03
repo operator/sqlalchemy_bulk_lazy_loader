@@ -6,7 +6,7 @@ from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.schema import Table, Column
 from test import _fixtures
 
-from lib.bulk_lazy_loader import UnsupportedRelationError
+from lib.sqlalchemy_bulk_lazy_loader import UnsupportedRelationError
 
 class LazyLoadTest(_fixtures.FixtureTest):
     def count_query(self, conn, cursor, statement, parameters, context, executemany):

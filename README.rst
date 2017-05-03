@@ -65,7 +65,7 @@ Installation
 
 Sqlalchemy Bulk Lazy Loader can be installed via pip
 
-``pip install sqlalchemy_bulk_lazy_loader``
+``pip install SQLAlchemy-bulk-lazy-loader``
 
 Usage
 -----

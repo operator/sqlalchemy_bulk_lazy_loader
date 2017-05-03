@@ -10,8 +10,8 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='sqlalchemy_bulk_lazy_loader',
-    version='0.9.0',
+    name='SQLAlchemy-bulk-lazy-loader',
+    version='0.9.5',
     description='A Bulk Lazy Loader for Sqlalchemy that solves the n + 1 loading problem',
     long_description=long_description,
     url='https://github.com/operator/sqlalchemy_bulk_lazy_loader',
@@ -27,6 +27,7 @@ setup(
     ],
     tests_require=['pytest >= 2.5.2', 'mock', 'pytest-xdist'],
     keywords='sqlalchemy orm lazyload joinedload subqueryload',
-    py_modules=["sqlalchemy_bulk_lazy_loader"],
-    install_requires=['sqlalchemy'],
+    py_modules=['sqlalchemy_bulk_lazy_loader'],
+    package_dir={'': 'lib'},
+    install_requires=['SQLAlchemy>=1.0'],
 )
