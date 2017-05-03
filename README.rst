@@ -1,22 +1,23 @@
 Sqlalchemy Bulk Lazy Loader
 ===========================
 
-A custom lazy loader for Sqlalchemy relations which ensures relations are always loaded efficiently. This loader automatically solves the `n+1 query problem<http://use-the-index-luke.com/sql/join/nested-loops-join-n1-problem>`_ without needing to manually add ``joinedload`` or ``subqueryload`` statements to all your queries.
+A custom lazy loader for Sqlalchemy relations which ensures relations are always loaded efficiently. This loader automatically solves the `n+1 query problem <http://use-the-index-luke.com/sql/join/nested-loops-join-n1-problem>`_ without needing to manually add ``joinedload`` or ``subqueryload`` statements to all your queries.
 
 The Problem
 -----------
 
 The n + 1 query problem arises whenever relationships are lazy-loaded in a loop. For example:
 
-.. highlight:: python
-::
+.. code:: python
+
     students = session.query(Student).limit(100).all()
     for student in students:
         print('{} studies at {}'.format(student.name, student.school.name))
 
 In the above code 101 SQL queries will be generated - one to load the list of students and then 100 individual queries for each student to load that student's school. The statements look like:
-.. highlight:: sql
-::
+
+.. code:: sql
+
     SELECT * FROM students LIMIT 100;
     SELECT * FROM schools WHERE schools.student_id = 1 LIMIT 1;
     SELECT * FROM schools WHERE schools.student_id = 2 LIMIT 1;
@@ -29,7 +30,8 @@ This is bad.
 
 The traditional way to solve this with Sqlalchemy is to add a ``joinedload`` or ``subqueryload`` to the initial query to include the schools along with the students, like below:
 
-.. highlight:: python
+.. code:: python
+
     students = (
         session.query(Student)
             .options(subqueryload(Student.school))
@@ -49,11 +51,13 @@ How The Bulk Lazy Loader Works
 99% of the time, if there is a list of models loaded in memory and a relation on one of them is lazy-loaded then you're in a loop and the same relationship is going to be requested on every other model. Sqlalchemy Bulk Lazy Loader assumes this is the case and whenever a relation on a model is lazy-loaded, it will look through the current session for any other similar models that need that same relation loaded and will issue a single, bulk SQL statement to load them all at once.
 
 This means you can load all the relations you want in loops while being guaranted that all relations are loaded performantly, and only the relations that are used are loaded. For example, here's the same code from above:
-``````python
-students = session.query(Student).limit(100).all()
-for student in students:
-    print('{} studies at {}'.format(student.name, student.school.name))
-``````
+
+.. code:: python
+
+    students = session.query(Student).limit(100).all()
+    for student in students:
+        print('{} studies at {}'.format(student.name, student.school.name))
+
 Sqlalchemy Bulk Lazy Loader will issue only 2 SQL statements, the same as if you had specified ``subqueryload`` on the initial query, except that now your code is a lot cleaner and you're guaranteed to be loading just the relations you need. Yay!
 
 Installation
@@ -68,21 +72,26 @@ Usage
 
 Before you declare your sqlalchemy mappings you need to run the following:
 
-::
+.. code:: python
+
     from sqlalchemy_bulk_lazy_loader import BulkLazyLoader
     BulkLazyLoader.register_loader()
 
 
 This registers the loader with sqlalchemy and makes it available on your relations by specifying ``lazy='bulk'`` in your relation mappings. For example:
 
-::
+.. code:: python
+
     class Student(db.model):
         id = db.Column(db.Integer, primary_key=True)
         school_id = db.Column(db.Integer, db.ForeignKey('school.id'))
 
     class School(db.model):
         id = db.Column(db.Integer, primary_key=True)
-        students = db.relationship('Student', lazy='bulk', backref=db.backref('school', lazy='bulk'))
+        students = db.relationship('Student',
+            lazy='bulk',
+            backref=db.backref('school', lazy='bulk'),
+        )
 
 And that's it! The bulk lazy loader will be used for ``student.school`` and ``school.students`` relations.
 
@@ -91,7 +100,8 @@ Limitations
 
 Currently only relations on a single primary key or a simple secondary join are supported.
 
-::
+.. code:: python
+
     students = relationship('Student', lazy='bulk') # OK!
     students = relationship('Student', lazy='bulk', order_by=Student.id) # OK!
     student = relationship('Student', lazy='bulk', uselist=False) # OK!
@@ -99,6 +109,8 @@ Currently only relations on a single primary key or a simple secondary join are 
         secondary=school_to_students) # OK!
     students = relationship('Student', lazy='bulk', 
         secondary=school_to_students, primaryjoin='and_(...)') # NOT SUPPORTED
+
+Python 2 is not supported.
 
 But I have this one case where I want to load the relations differently!
 ------------------------------------------------------------------------
