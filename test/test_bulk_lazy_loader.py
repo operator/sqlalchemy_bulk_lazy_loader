@@ -84,10 +84,10 @@ class TestBulkLazyLoader(_fixtures.FixtureTest):
         assert [
             Address(id=1, email_address='jack@bean.com', user_id=7),
         ] == user1_dict['addresses']
-        assert [
+        assert [ # order is by email_address DESC
             Address(id=2, email_address='jackjr@wood.com', user_id=8),
-            Address(id=3, email_address='jackjr@bettyboop.com', user_id=8),
             Address(id=4, email_address='jackjr@lala.com', user_id=8),
+            Address(id=3, email_address='jackjr@bettyboop.com', user_id=8),
         ] == user2_dict['addresses']
         assert [
             Address(id=5, email_address='fred@fred.com', user_id=9),
