@@ -54,11 +54,11 @@ class FixtureTest(fixtures.MappedTest):
         UserToBook, user_to_books = cls.classes.UserToBook, cls.tables.user_to_books
 
         mapper(User, users, properties={
-            'addresses': relationship(Address, backref='user', lazy="bulk"),
-            'children': relationship(User, backref=backref('parent', remote_side=[users.c.id]), lazy="bulk"),
-            'authored_books': relationship(Book, lazy="bulk", backref='author'),
-            'user_info': relationship(UserInfo, lazy="bulk", backref='user', uselist=False),
-            'user_to_books': relationship(UserToBook, lazy="bulk", backref='user'),
+            'addresses': relationship(Address, backref=backref('user', lazy="bulk"), lazy="bulk"),
+            'children': relationship(User, backref=backref('parent', remote_side=[users.c.id], lazy="bulk"), lazy="bulk"),
+            'authored_books': relationship(Book, lazy="bulk", backref=backref('author', lazy="bulk")),
+            'user_info': relationship(UserInfo, lazy="bulk", backref=backref('user', lazy="bulk"), uselist=False),
+            'user_to_books': relationship(UserToBook, lazy="bulk", backref=backref('user', lazy="bulk")),
             'things': relationship(Thing, secondary=cls.tables.user_to_things, lazy="bulk"),
         })
         mapper(Address, addresses)
@@ -183,7 +183,7 @@ class FixtureTest(fixtures.MappedTest):
             user_to_things=(
                 ('user_id', 'thing_id'),
                 (7, 1),
-                (8, 1),
+                (8, 1), # include a duplicate intentionally
                 (8, 1),
                 (10, 2),
                 (9, 2),
