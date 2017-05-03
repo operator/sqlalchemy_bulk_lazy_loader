@@ -20,10 +20,12 @@ setup(
     license='MIT',
     classifiers=[
         'Intended Audience :: Developers',
-        'Topic :: Software Development :: ORM',
+        'Topic :: Database :: Front-Ends',
+        'Operating System :: OS Independent',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
     ],
+    tests_require=['pytest >= 2.5.2', 'mock', 'pytest-xdist'],
     keywords='sqlalchemy orm lazyload joinedload subqueryload',
     py_modules=["sqlalchemy_bulk_lazy_loader"],
     install_requires=['sqlalchemy'],
