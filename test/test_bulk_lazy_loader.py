@@ -9,17 +9,20 @@ from test import _fixtures
 from lib.sqlalchemy_bulk_lazy_loader import UnsupportedRelationError
 
 class LazyLoadTest(_fixtures.FixtureTest):
-    def count_query(self, conn, cursor, statement, parameters, context, executemany):
-        self.num_queries += 1
+    def record_query(self, conn, cursor, statement, parameters, context, executemany):
+        self.queries.append({
+            'statement': statement,
+            'parameters': parameters,
+        })
 
     def setup(self):
         super().setup()
-        self.num_queries = 0
-        event.listen(Engine, 'before_cursor_execute', self.count_query)
+        self.queries = []
+        event.listen(Engine, 'before_cursor_execute', self.record_query)
 
     def teardown(self):
         super().teardown()
-        event.remove(Engine, 'before_cursor_execute', self.count_query)
+        event.remove(Engine, 'before_cursor_execute', self.record_query)
 
     def test_load_one_to_one(self):
         User = self.classes.User
@@ -27,7 +30,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
         session = create_session()
 
         users = session.query(User).order_by(self.tables.users.c.id.asc()).all()
-        self.num_queries = 0
+        self.queries = []
 
         # make sure no relations are loaded
         for user in users:
@@ -38,8 +41,8 @@ class LazyLoadTest(_fixtures.FixtureTest):
         users[0].user_info
 
         # only 1 query should have been generated to load all the child relationships
-        assert self.num_queries == 1
-        self.num_queries = 0
+        assert len(self.queries) == 1
+        self.queries = []
 
         user1_dict = attributes.instance_dict(users[0])
         user2_dict = attributes.instance_dict(users[1])
@@ -57,8 +60,31 @@ class LazyLoadTest(_fixtures.FixtureTest):
         assert users[3].user_info.user == users[3]
 
         # no new queries should have been generated
-        assert self.num_queries == 0
+        assert len(self.queries) == 0
 
+    def test_only_loads_relations_on_unpopulated_models(self):
+        User = self.classes.User
+        Address = self.classes.Address
+        session = create_session()
+
+        users = session.query(User).order_by(self.tables.users.c.id.asc()).all()
+        address = session.query(Address).filter(self.tables.addresses.c.id == 1).first()
+        # pre-load the address for the first user
+        attributes.set_committed_value(users[0], 'addresses', [address])
+        self.queries = []
+
+        # make sure no relations are loaded
+        for user in users[1:]:
+            model_dict = attributes.instance_dict(user)
+            assert 'addresses' not in model_dict
+
+        # trigger a lazy load
+        users[1].addresses
+
+        # only 1 query should have been generated to load all the child relationships
+        assert len(self.queries) == 1
+        unpopulated_user_ids = [user.id for user in users[1:]]
+        assert self.queries[0]['parameters'] == tuple(unpopulated_user_ids)
 
     def test_load_one_to_many(self):
         User = self.classes.User
@@ -66,7 +92,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
         session = create_session()
 
         users = session.query(User).order_by(self.tables.users.c.id.asc()).all()
-        self.num_queries = 0
+        self.queries = []
 
         # make sure no relations are loaded
         for user in users:
@@ -77,8 +103,8 @@ class LazyLoadTest(_fixtures.FixtureTest):
         users[0].addresses
 
         # only 1 query should have been generated to load all the child relationships
-        assert self.num_queries == 1
-        self.num_queries = 0
+        assert len(self.queries) == 1
+        self.queries = []
 
         user1_dict = attributes.instance_dict(users[0])
         user2_dict = attributes.instance_dict(users[1])
@@ -107,7 +133,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
             assert address.user == users[2]
 
         # no new queries should have been generated
-        assert self.num_queries == 0
+        assert len(self.queries) == 0
 
     def test_load_many_to_one(self):
         User = self.classes.User
@@ -115,7 +141,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
         session = create_session()
 
         addresses = session.query(Address).order_by(self.tables.addresses.c.id.asc()).all()
-        self.num_queries = 0
+        self.queries = []
 
         # make sure no relations are loaded
         for address in addresses:
@@ -126,8 +152,8 @@ class LazyLoadTest(_fixtures.FixtureTest):
         addresses[0].user
 
         # only 1 query should have been generated to load all the child relationships
-        assert self.num_queries == 1
-        self.num_queries = 0
+        assert len(self.queries) == 1
+        self.queries = []
 
         address1_dict = attributes.instance_dict(addresses[0])
         address2_dict = attributes.instance_dict(addresses[1])
@@ -142,7 +168,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
         assert User(id=9, name='fred', parent_id=7) == address5_dict['user']
 
         # no new queries should have been generated
-        assert self.num_queries == 0
+        assert len(self.queries) == 0
 
     def test_load_one_to_many_self_refencing(self):
         User = self.classes.User
@@ -154,7 +180,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
                 .order_by(self.tables.users.c.id.asc())
                 .all()
         )
-        self.num_queries = 0
+        self.queries = []
 
         # make sure no relations are loaded
         for user in users:
@@ -165,8 +191,8 @@ class LazyLoadTest(_fixtures.FixtureTest):
         users[0].children
 
         # only 1 query should have been generated to load all the child relationships
-        assert self.num_queries == 1
-        self.num_queries = 0
+        assert len(self.queries) == 1
+        self.queries = []
 
         user1_dict = attributes.instance_dict(users[0])
         user2_dict = attributes.instance_dict(users[1])
@@ -186,7 +212,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
             assert child.parent == users[1]
 
         # no new queries should have been generated
-        assert self.num_queries == 0
+        assert len(self.queries) == 0
 
 
     def test_load_many_to_one_self_refencing(self):
@@ -199,7 +225,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
                 .order_by(self.tables.users.c.id.asc())
                 .all()
         )
-        self.num_queries = 0
+        self.queries = []
 
         # make sure no relations are loaded
         for user in users:
@@ -210,8 +236,8 @@ class LazyLoadTest(_fixtures.FixtureTest):
         users[0].parent
 
         # only 1 query should have been generated to load all the child relationships
-        assert self.num_queries == 1
-        self.num_queries = 0
+        assert len(self.queries) == 1
+        self.queries = []
 
         user1_dict = attributes.instance_dict(users[0])
         user2_dict = attributes.instance_dict(users[1])
@@ -222,7 +248,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
         assert User(id=8, name='jack jr', parent_id=7) == user3_dict['parent']
 
         # no new queries should have been generated
-        assert self.num_queries == 0
+        assert len(self.queries) == 0
 
     def test_load_many_to_many(self):
         User = self.classes.User
@@ -230,7 +256,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
         session = create_session()
 
         users = session.query(User).order_by(self.tables.users.c.id.asc()).all()
-        self.num_queries = 0
+        self.queries = []
 
         # make sure no relations are loaded
         for user in users:
@@ -241,8 +267,8 @@ class LazyLoadTest(_fixtures.FixtureTest):
         users[0].things
 
         # only 1 query should have been generated to load all the child relationships
-        assert self.num_queries == 1
-        self.num_queries = 0
+        assert len(self.queries) == 1
+        self.queries = []
 
         user1_dict = attributes.instance_dict(users[0])
         user2_dict = attributes.instance_dict(users[1])
@@ -264,7 +290,7 @@ class LazyLoadTest(_fixtures.FixtureTest):
         ] == user4_dict['things']
 
         # no new queries should have been generated
-        assert self.num_queries == 0
+        assert len(self.queries) == 0
 
 class BulkLazyLoaderValidationTest(fixtures.MappedTest):
     @classmethod

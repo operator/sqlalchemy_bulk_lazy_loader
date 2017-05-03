@@ -55,8 +55,13 @@ class BulkLazyLoader(LazyLoader):
         """
         model_class = model.__class__
         dict_ = attributes.instance_dict(model)
-        return [model for model in session.identity_map.values()
-                if isinstance(model, model_class) and model not in session.new and self.key not in dict_]
+        similar_models = []
+        for possible_model in session.identity_map.values():
+            is_same_class = isinstance(possible_model, model_class)
+            is_not_new = possible_model not in session.new
+            if is_same_class and is_not_new and self.key not in attributes.instance_dict(possible_model):
+                similar_models.append(possible_model)
+        return similar_models
 
     def _get_model_value(self, model, mapper, col, passive):
         state = inspect(model)

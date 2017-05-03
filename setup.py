@@ -11,7 +11,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='SQLAlchemy-bulk-lazy-loader',
-    version='0.9.5',
+    version='0.9.6',
     description='A Bulk Lazy Loader for Sqlalchemy that solves the n + 1 loading problem',
     long_description=long_description,
     url='https://github.com/operator/sqlalchemy_bulk_lazy_loader',
