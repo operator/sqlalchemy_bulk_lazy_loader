@@ -16,9 +16,9 @@ class BulkLazyLoader(LazyLoader):
         criterion, param_keys = self._simple_lazy_clause
         self._criterion = criterion
         self._join_col = self._get_join_col_from_criterion(criterion)
+        self._validate_relation()
         param_key = param_keys[0]
         self._ident = param_key[1]
-        self._validate_relation()
 
     @classmethod
     def register_loader(cls):
@@ -39,11 +39,11 @@ class BulkLazyLoader(LazyLoader):
                 col = self._get_join_col_from_criterion(clause)
                 if col is not None:
                     return col
-
-        if isinstance(criterion.left, Column) and isinstance(criterion.right, BindParameter):
-            return criterion.left
-        elif isinstance(criterion.right, Column) and isinstance(criterion.left, BindParameter):
-            return criterion.right
+        elif isinstance(criterion, BinaryExpression):
+            if isinstance(criterion.left, Column) and isinstance(criterion.right, BindParameter):
+                return criterion.left
+            elif isinstance(criterion.right, Column) and isinstance(criterion.left, BindParameter):
+                return criterion.right
         return None
 
     def _clause_has_no_parameters(self, clause):
@@ -99,38 +99,40 @@ class BulkLazyLoader(LazyLoader):
                 attributes.set_committed_value(model, self.key, result)
         return current_model_result
 
-    def _validate_relation(self):
+    def _unsupported_relation(self):
         model_name = self.parent_property.parent.class_.__name__
         error_msg = (
             'BulkLazyLoader {}.{}: '.format(model_name, self.key) +
             'Only simple relations on 1 primary key and without custom joins are supported'
         )
-        error = UnsupportedRelationError(error_msg)
-        criterion, param_keys = self._simple_lazy_clause
+        raise UnsupportedRelationError(error_msg)
 
+    def _validate_relation(self):
+        
+        criterion, param_keys = self._simple_lazy_clause
         if self.parent_property.secondary is None:
             # for relationship without a secondary join criterion should look like: "COL = :param"
             if not isinstance(criterion, BinaryExpression):
-                raise error
+                self._unsupported_relation()
         else:
             # for relationship with a secondary join criterion should look like: "T1.col1 = :param AND T1.col2 = T2.col"
             if not isinstance(criterion, BooleanClauseList):
-                raise error
+                self._unsupported_relation()
             if criterion.operator is not operators.and_:
-                raise error
+                self._unsupported_relation()
             for clause in criterion.clauses:
                 if not isinstance(clause, BinaryExpression):
-                    raise error
+                    self._unsupported_relation()
 
         if self._join_col is None:
-            raise error
+            self._unsupported_relation()
 
         if len(param_keys) != 1:
-            raise error
+            self._unsupported_relation()
 
         key, ident, value = param_keys[0]
         if value is not None or ident is None:
-            raise error
+            self._unsupported_relation()
 
     @util.dependencies("sqlalchemy.orm.strategy_options")
     def _emit_lazyload(self, strategy_options, session, state, ident_key, passive):

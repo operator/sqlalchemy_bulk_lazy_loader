@@ -1,10 +1,14 @@
-from sqlalchemy.orm import attributes, create_session
-from sqlalchemy import event
+from sqlalchemy.orm import attributes, create_session, mapper, relationship, configure_mappers
+from sqlalchemy import  Integer, ForeignKey, ForeignKeyConstraint
+from sqlalchemy import event, and_
 from sqlalchemy.engine import Engine
+from sqlalchemy.testing import fixtures
+from sqlalchemy.testing.schema import Table, Column
 from test import _fixtures
 
-class TestBulkLazyLoader(_fixtures.FixtureTest):
+from lib.bulk_lazy_loader import UnsupportedRelationError
 
+class LazyLoadTest(_fixtures.FixtureTest):
     def count_query(self, conn, cursor, statement, parameters, context, executemany):
         self.num_queries += 1
 
@@ -262,10 +266,104 @@ class TestBulkLazyLoader(_fixtures.FixtureTest):
         # no new queries should have been generated
         assert self.num_queries == 0
 
+class BulkLazyLoaderValidationTest(fixtures.MappedTest):
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            'multi_pk', metadata,
+            Column("id1", Integer, primary_key=True),
+            Column("id2", Integer, primary_key=True),
+        )
 
+        Table(
+            "multi_fk", metadata,
+            Column("id", Integer, primary_key=True),
+            Column('multi_pk_id1', Integer),
+            Column('multi_pk_id2', Integer),
+            ForeignKeyConstraint(['multi_pk_id1', 'multi_pk_id2'], ['multi_pk.id1', 'multi_pk.id2'])
+        )
 
+        Table(
+            'a', metadata,
+            Column("id", Integer, primary_key=True),
+        )
 
+        Table(
+            'b', metadata,
+            Column("id", Integer, primary_key=True),
+        )
 
+        Table(
+            'a_to_b', metadata,
+            Column('a_id', None, ForeignKey('a.id')),
+            Column('b_id', None, ForeignKey('b.id')),
+        )
 
+    @classmethod
+    def setup_classes(cls):
+        class A(cls.Basic):
+            pass
 
+        class B(cls.Basic):
+            pass
 
+        class MultiPk(cls.Basic):
+            pass
+
+        class MultiFk(cls.Basic):
+            pass
+
+    def test_multi_foreign_key_relations_are_not_supported(self):
+        mapper(self.classes.MultiPk, self.tables.multi_pk)
+        mapper(self.classes.MultiFk, self.tables.multi_fk, properties={
+            'multi_pks': relationship(self.classes.MultiPk, lazy="bulk")
+        })
+        exception = None
+        try:
+            configure_mappers()
+        except UnsupportedRelationError as e:
+            exception = e
+        assert exception.args[0] == (
+            'BulkLazyLoader MultiFk.multi_pks: '
+            'Only simple relations on 1 primary key and without custom joins are supported'
+        )
+
+    def test_secondary_joins_with_custom_primary_join_conditions_are_not_supported(self):
+        mapper(self.classes.A, self.tables.a)
+        mapper(self.classes.B, self.tables.b, properties={
+            'a': relationship(
+                self.classes.A,
+                secondary=self.tables.a_to_b,
+                primaryjoin=and_(self.tables.b.c.id == self.tables.a_to_b.c.b_id, self.tables.b.c.id > 10),
+                lazy="bulk",
+            )
+        })
+        exception = None
+        try:
+            configure_mappers()
+        except UnsupportedRelationError as e:
+            exception = e
+        assert exception.args[0] == (
+            'BulkLazyLoader B.a: '
+            'Only simple relations on 1 primary key and without custom joins are supported'
+        )
+
+    def test_secondary_joins_with_custom_secondary_join_conditions_are_not_supported(self):
+        mapper(self.classes.A, self.tables.a)
+        mapper(self.classes.B, self.tables.b, properties={
+            'a': relationship(
+                self.classes.A,
+                secondary=self.tables.a_to_b,
+                secondaryjoin=and_(self.tables.a.c.id == self.tables.a_to_b.c.a_id, self.tables.a.c.id > 10),
+                lazy="bulk",
+            )
+        })
+        exception = None
+        try:
+            configure_mappers()
+        except UnsupportedRelationError as e:
+            exception = e
+        assert exception.args[0] == (
+            'BulkLazyLoader B.a: '
+            'Only simple relations on 1 primary key and without custom joins are supported'
+        )
