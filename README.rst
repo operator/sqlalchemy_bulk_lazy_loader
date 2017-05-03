@@ -88,10 +88,7 @@ This registers the loader with sqlalchemy and makes it available on your relatio
 
     class School(db.model):
         id = db.Column(db.Integer, primary_key=True)
-        students = db.relationship('Student',
-            lazy='bulk',
-            backref=db.backref('school', lazy='bulk'),
-        )
+        students = db.relationship('Student', lazy='bulk', backref=db.backref('school', lazy='bulk'))
 
 And that's it! The bulk lazy loader will be used for ``student.school`` and ``school.students`` relations.
 
@@ -105,10 +102,8 @@ Currently only relations on a single primary key or a simple secondary join are 
     students = relationship('Student', lazy='bulk') # OK!
     students = relationship('Student', lazy='bulk', order_by=Student.id) # OK!
     student = relationship('Student', lazy='bulk', uselist=False) # OK!
-    students = relationship('Student', lazy='bulk',
-        secondary=school_to_students) # OK!
-    students = relationship('Student', lazy='bulk', 
-        secondary=school_to_students, primaryjoin='and_(...)') # NOT SUPPORTED
+    students = relationship('Student', lazy='bulk', secondary=school_to_students) # OK!
+    students = relationship('Student', lazy='bulk', secondary=school_to_students, primaryjoin='and_(...)') # NOT SUPPORTED
 
 Python 2 is not supported.
 
