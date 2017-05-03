@@ -5,13 +5,13 @@ A custom lazy loader for Sqlalchemy relations which ensures relations are always
 ## The Problem
 
 The n + 1 query problem arises whenever relationships are lazy-loaded in a loop. For example:
-```
+```python
 students = session.query(Student).limit(100).all()
 for student in students:
     print('{} studies at {}'.format(student.name, student.school.name))
 ```
 In the above code 101 SQL queries will be generated - one to load the list of students and then 100 individual queries for each student to load that student's school. The statements look like:
-```
+```sql
 SELECT * FROM students LIMIT 100;
 SELECT * FROM schools WHERE schools.student_id = 1 LIMIT 1;
 SELECT * FROM schools WHERE schools.student_id = 2 LIMIT 1;
@@ -24,7 +24,7 @@ This is bad.
 
 The traditional way to solve this with Sqlalchemy is to add a `joinedload` or `subqueryload` to the initial query to include the schools along with the students, like below:
 
-```
+```python
 students = (
     session.query(Student)
         .options(subqueryload(Student.school))
@@ -34,16 +34,16 @@ students = (
 for student in students:
     print('{} studies at {}'.format(student.name, student.school.name))
 ```
-While this works, it needs to be added to every query that's performed, and when there's a lot of related models being added you can easily end up with a massive list of `subqueryload`s and `joinedload`s. If you forget even one anywhere then you're silently back to the n + 1 query problem. Also, if you stop needing a relation later you need to remember to remove it from the original query or else you're now loading too much data. Furthermore, it's just a huge pain to have to maintain these lists of related models throughout your code everywhere the database is accessed.
+While this works, it needs to be added to every query that's performed, and when there's a lot of related models being added you can easily end up with a massive list of `subqueryload` and `joinedload`. If you forget even one anywhere then you're silently back to the n + 1 query problem. Also, if you stop needing a relation later you need to remember to remove it from the original query or else you're now loading too much data. Furthermore, it's just a huge pain to have to maintain these lists of related models throughout your code everywhere there's a database query.
 
 Wouldn't it be great if you didn't have to worry about adding `subqueryload` and `joinedload` and yet also be guaranteed that all your relations are loading efficiently?
 
-## How it works
+## How The Bulk Lazy Loader Works
 
 99% of the time, if there is a list of models loaded in memory and a relation on one of them is lazy-loaded then you're in a loop and the same relationship is going to be requested on every other model. Sqlalchemy Bulk Lazy Loader assumes this is the case and whenever a relation on a model is lazy-loaded, it will look through the current session for any other similar models that need that same relation loaded and will issue a single, bulk SQL statement to load them all at once.
 
 This means you can load all the relations you want in loops while being guaranted that all relations are loaded performantly, and only the relations that are used are loaded. For example, here's the same code from above:
-```
+```python
 students = session.query(Student).limit(100).all()
 for student in students:
     print('{} studies at {}'.format(student.name, student.school.name))
@@ -60,14 +60,14 @@ Sqlalchemy Bulk Lazy Loader can be installed via pip
 
 Before you declare your sqlalchemy mappings you need to run the following:
 
-```
+```python
 from sqlalchemy_bulk_lazy_loader import BulkLazyLoader
 BulkLazyLoader.register_loader()
 ```
 
 This registers the loader with sqlalchemy and makes it available on your relations by specifying `lazy='bulk'` in your relation mappings. For example:
 
-```
+```python
 class Student(db.model):
     id = db.Column(db.Integer, primary_key=True)
     school_id = db.Column(db.Integer, db.ForeignKey('school.id'))
@@ -82,12 +82,14 @@ And that's it! The bulk lazy loader will be used for `student.school` and `schoo
 
 Currently only relations on a single primary key or a simple secondary join are supported.
 
-```
+```python
 students = relationship('Student', lazy='bulk') # OK!
 students = relationship('Student', lazy='bulk', order_by=Student.id) # OK!
 student = relationship('Student', lazy='bulk', uselist=False) # OK!
-students = relationship('Student', lazy='bulk', secondary=school_to_students) # OK!
-students = relationship('Student', lazy='bulk', secondary=school_to_students, primaryjoin='and_(...)') # NOT SUPPORTED
+students = relationship('Student', lazy='bulk',
+    secondary=school_to_students) # OK!
+students = relationship('Student', lazy='bulk', 
+    secondary=school_to_students, primaryjoin='and_(...)') # NOT SUPPORTED
 ```
 
 ## But I have this one case where I want to load the relations differently!
