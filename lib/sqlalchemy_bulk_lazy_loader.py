@@ -113,7 +113,6 @@ class BulkLazyLoader(LazyLoader):
         raise UnsupportedRelationError(error_msg)
 
     def _validate_relation(self):
-        
         criterion, param_keys = self._simple_lazy_clause
         if self.parent_property.secondary is None:
             # for relationship without a secondary join criterion should look like: "COL = :param"
@@ -155,17 +154,8 @@ class BulkLazyLoader(LazyLoader):
 
         q = q._with_invoke_all_eagers(False)
 
-        pending = not state.key
-
-        # don't autoflush on pending
-        if pending or passive & attributes.NO_AUTOFLUSH:
+        if passive & attributes.NO_AUTOFLUSH:
             q = q.autoflush(False)
-
-        if state.load_path:
-            q = q._with_current_path(state.load_path[self.parent_property])
-
-        if state.load_options:
-            q = q._conditional_options(*state.load_options)
 
         if self.parent_property.order_by:
             q = q.order_by(*util.to_list(self.parent_property.order_by))
