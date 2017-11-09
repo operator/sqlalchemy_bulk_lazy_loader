@@ -1,5 +1,5 @@
 from sqlalchemy import util, inspect, Column
-from sqlalchemy.orm import properties, attributes, interfaces
+from sqlalchemy.orm import properties, attributes, interfaces, strategy_options
 from sqlalchemy.orm.strategies import LazyLoader
 from sqlalchemy.sql.elements import BinaryExpression, BindParameter, BooleanClauseList
 from sqlalchemy.sql import operators
@@ -138,8 +138,7 @@ class BulkLazyLoader(LazyLoader):
         if value is not None or ident is None:
             self._unsupported_relation()
 
-    @util.dependencies("sqlalchemy.orm.strategy_options")
-    def _emit_lazyload(self, strategy_options, session, state, ident_key, passive):
+    def _emit_lazyload(self, session, state, ident_key, passive):
         """
         This is the main method from LazyLoader we need to overwrite. Unfortunately I don't think there's
         a clean way to add bulk functionality without partially copy/pasting from LazyLoader#_emit_lazyload
