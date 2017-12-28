@@ -178,12 +178,12 @@ class BulkLazyLoader(LazyLoader):
         # Find all models in this session that also need this same relationship to be populated
         similar_models = self._get_similar_unpopulated_models(current_model, session)
         param_value_to_models = {}
-        param_values = []
+        param_values = set()
         for model in similar_models:
             value = self._get_model_value(model, col=self._ident, mapper=parent_mapper, passive=passive)
             param_value_to_models[value] = param_value_to_models.get(value, [])
             param_value_to_models[value].append(model)
-            param_values.append(value)
+            param_values.add(value)
 
         if self.parent_property.secondary is not None:
             # if there's a secondary join, we want to just replace the first join clause in the filter
