@@ -1,8 +1,8 @@
-from sqlalchemy import util, inspect, Column
-from sqlalchemy.orm import properties, attributes, interfaces, strategy_options
+from sqlalchemy import Column, inspect, util
+from sqlalchemy.orm import RelationshipProperty, attributes, interfaces, strategy_options
 from sqlalchemy.orm.strategies import LazyLoader
-from sqlalchemy.sql.elements import BinaryExpression, BindParameter, BooleanClauseList
 from sqlalchemy.sql import operators
+from sqlalchemy.sql.elements import BinaryExpression, BindParameter, BooleanClauseList
 
 
 class UnsupportedRelationError(Exception):
@@ -10,7 +10,6 @@ class UnsupportedRelationError(Exception):
 
 
 class BulkLazyLoader(LazyLoader):
-
     def __init__(self, parent, strategy_key):
         super(BulkLazyLoader, self).__init__(parent, strategy_key)
         criterion, param_keys = self._simple_lazy_clause
@@ -25,7 +24,7 @@ class BulkLazyLoader(LazyLoader):
         """
         call this method before defining any mappers to make this loader available with `lazy="bulk"`
         """
-        decorator = properties.RelationshipProperty.strategy_for(lazy="bulk")
+        decorator = RelationshipProperty.strategy_for(lazy="bulk")
         decorator(cls)
 
     def _get_join_col_from_criterion(self, criterion, reverse=False):
@@ -54,7 +53,6 @@ class BulkLazyLoader(LazyLoader):
         This finds all other models of this class in the session that also need to have this relationship lazyloaded
         """
         model_class = model.__class__
-        dict_ = attributes.instance_dict(model)
         similar_models = []
         for possible_model in session.identity_map.values():
             is_same_class = isinstance(possible_model, model_class)
@@ -138,13 +136,16 @@ class BulkLazyLoader(LazyLoader):
         if value is not None or ident is None:
             self._unsupported_relation()
 
-    def _emit_lazyload(self, session, state, ident_key, passive):
+    def _emit_lazyload(
+            self, session, state, ident_key, passive, loadopt, extra_criteria
+    ):
         """
         This is the main method from LazyLoader we need to overwrite. Unfortunately I don't think there's
         a clean way to add bulk functionality without partially copy/pasting from LazyLoader#_emit_lazyload
         """
 
-        q = session.query(self.mapper, self._join_col)._adapt_all_clauses()
+        q = session.query(self.mapper, self._join_col)
+        q._compile_options += {"_orm_only_from_obj_alias": False}
 
         # -------------- COPIED/MODIFIED FROM LAZYLOADER -----------------
 
@@ -168,7 +169,7 @@ class BulkLazyLoader(LazyLoader):
                 q = q.options(
                     strategy_options.Load.for_existing_path(
                         q._current_path[rev.parent]
-                    ).lazyload(rev.key)
+                    ).lazyload(rev)
                 )
 
         # ------------ CUSTOM BULK LOGIC --------------------------
