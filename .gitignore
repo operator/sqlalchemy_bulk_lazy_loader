@@ -21,3 +21,5 @@ sqlnet.log
 /test.py
 /.cache/
 *.sw[o,p]
+.idea
+.eggs

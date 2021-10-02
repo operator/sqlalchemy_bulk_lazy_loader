@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 # To use a consistent encoding
 from codecs import open
 from os import path
@@ -11,7 +11,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='SQLAlchemy-bulk-lazy-loader',
-    version='0.9.9',
+    version='0.10.0',
     description='A Bulk Lazy Loader for Sqlalchemy that solves the n + 1 loading problem',
     long_description=long_description,
     url='https://github.com/operator/sqlalchemy_bulk_lazy_loader',
@@ -25,9 +25,9 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
     ],
-    tests_require=['pytest >= 2.5.2', 'mock', 'pytest-xdist'],
+    tests_require=['pytest >= 6.2.3', 'mock', 'pytest-xdist'],
     keywords='sqlalchemy orm lazyload joinedload subqueryload',
     py_modules=['sqlalchemy_bulk_lazy_loader'],
     package_dir={'': 'lib'},
-    install_requires=['SQLAlchemy>=1.0'],
+    install_requires=["SQLAlchemy~=1.4"],
 )
